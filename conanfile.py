@@ -29,13 +29,10 @@ class DoxygenInstallerConan(ConanFile):
         if self.settings.os_build in ["Linux", "Macos"] and self.settings.arch_build == "x86":
             raise ConanInvalidConfiguration("x86 is not supported on Linux or Macos")
 
-    def requirements(self):
-        if self.options.build_from_source:
-            self.requires("flex_installer/2.6.4@bincrafters/stable")
-            self.requires("bison_installer/3.3.2@bincrafters/stable")
-
     def build_requirements(self):
         if self.options.build_from_source:
+            self.build_requires("flex_installer/2.6.4@bincrafters/stable")
+            self.build_requires("bison_installer/3.3.2@bincrafters/stable")
             self.build_requires("cmake_installer/3.15.3@conan/stable")
 
     def source(self):

@@ -14,8 +14,7 @@ class DoxygenInstallerConan(ConanFile):
     homepage = "https://github.com/doxygen/doxygen"
     author = "Inexor <info@inexor.org>"
     license = "GPL-2.0-only"
-    exports = ["LICENSE", "FindDoxygen.cmake"]
-    exports_sources = ["FindDoxygen.cmake"]
+    exports = ["LICENSE"]
 
     settings = "os_build", "arch_build", "compiler", "arch"
     options = {"build_from_source": [False, True]}
@@ -48,14 +47,10 @@ class DoxygenInstallerConan(ConanFile):
         tools.get(archive_url, sha256=self.source_sha)
         os.rename("doxygen-{!s}".format(archive_name), self._source_subfolder)
 
-        doxyfile = "FindDoxygen.cmake"
         cmakefile = "{!s}/CMakeLists.txt".format(self._source_subfolder)
         executeable = "doxygen"
         if self.settings.os_build == "Windows":
             executeable += ".exe"
-
-        tools.replace_in_file(doxyfile, "## MARKER POINT: DOXYGEN_EXECUTABLE", 'set(DOXYGEN_EXECUTABLE "${CONAN_DOXYGEN_ROOT}/%s" CACHE INTERNAL "")' % executeable)
-        tools.replace_in_file(doxyfile, "## MARKER POINT: DOXYGEN_VERSION", 'set(DOXYGEN_VERSION "%s" CACHE INTERNAL "")' % self.version)
 
         tools.replace_in_file(cmakefile, "include(version)", 'include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake")')
         tools.replace_in_file(cmakefile, "project(doxygen)", """project(doxygen)
@@ -131,7 +126,6 @@ conan_basic_setup()""")
             tools.unzip(dest_file)
         os.unlink(dest_file)
 
-        doxyfile = "FindDoxygen.cmake"
         executeable = "doxygen"
         if self.settings.os_build == "Windows":
             executeable += ".exe"

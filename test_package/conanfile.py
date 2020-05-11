@@ -4,6 +4,8 @@
 from conans import ConanFile, CMake, tools
 
 class TestPackageConan(ConanFile):
+    options = {"build_from_source": [False, True]}
+    default_options = "build_from_source=True"
     generators = "cmake_paths"
     def build(self):
         cmake = CMake(self)

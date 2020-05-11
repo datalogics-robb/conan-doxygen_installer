@@ -15,13 +15,10 @@ class DoxygenInstallerConan(ConanFile):
     author = "Inexor <info@inexor.org>"
     license = "GPL-2.0-only"
     exports = ["LICENSE"]
-
     settings = "os_build", "arch_build", "compiler", "arch"
     options = {"build_from_source": [False, True]}
-    default_options = "build_from_source=False"
-
+    default_options = "build_from_source=True"
     generators = "cmake"
-
     _source_subfolder = "source_subfolder"
     _build_subfolder = "build_subfolder"
 
@@ -32,7 +29,7 @@ class DoxygenInstallerConan(ConanFile):
     def build_requirements(self):
         if self.options.build_from_source:
             self.build_requires("flex_installer/2.6.4@bincrafters/stable")
-            self.build_requires("bison_installer/3.3.2@bincrafters/stable")
+            self.build_requires('bison/3.5.3')
             self.build_requires("cmake_installer/3.15.3@conan/stable")
 
     def source(self):
@@ -138,7 +135,7 @@ conan_basic_setup()""")
             cmake = self._configure_cmake()
             cmake.install()
 
-        if self.settings.os_build == "Linux":
+        if self.settings.os_build not in ['Windows', 'Macos']:
             srcdir = "doxygen-{}/bin".format(self.version)
             self.copy("*", dst="bin", src=srcdir)
 

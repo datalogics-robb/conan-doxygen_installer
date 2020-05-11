@@ -1,0 +1,5 @@
+# Note that eol=lf means that CRLF will be converted to LF going into Git, and
+# will remain LF when checked out, even on Windows
+conanfile.py text eol=lf
+conandata.yml text eol=lf
+/util/*.py text eol=lf

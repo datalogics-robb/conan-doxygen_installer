@@ -1,0 +1,6 @@
+include(gcc-8-aix71-64)
+[env]
+LDFLAGS=-liconv
+CFLAGS=-maix64 -pthread -maltivec -mvsx -mcmodel=large
+CXXFLAGS=-maix64 -pthread -maltivec -mvsx -mcmodel=large
+

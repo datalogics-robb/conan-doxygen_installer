@@ -6,8 +6,8 @@ import shutil
 
 class DoxygenInstallerConan(ConanFile):
     name = "doxygen_installer"
-    version = "1.8.18"
-    source_sha = '9c88f733396dca16139483045d5afa5bbf19d67be0b8f0ea43c4e813ecfb2aa2'
+    version = "1.8.20"
+    source_sha = '3dbdf8814d6e68233d5149239cb1f0b40b4e7b32eef2fd53de8828fedd7aca15'
     description = "A documentation system for C++, C, Java, IDL and PHP --- Note: Dot is disabled in this package"
     topics = ("conan", "doxygen", "installer", "devtool", "documentation")
     url = "https://github.com/datalogics/conan-doxygen_installer"
@@ -16,8 +16,8 @@ class DoxygenInstallerConan(ConanFile):
     license = "GPL-2.0-only"
     exports = ["LICENSE"]
     settings = "os_build", "arch_build", "compiler", "arch"
-    options = {"build_from_source": [False, True]}
-    default_options = "build_from_source=False"
+    options = {"build_from_source": [True,]}
+    default_options = "build_from_source=True"
     generators = "cmake", "virtualenv"
     _source_subfolder = "source_subfolder"
     _build_subfolder = "build_subfolder"
@@ -25,19 +25,13 @@ class DoxygenInstallerConan(ConanFile):
     def config(self):
         if self.settings.os_build in ["Linux", "Macos"] and self.settings.arch_build == "x86":
             raise ConanInvalidConfiguration("x86 is not supported on Linux or Macos")
-        if self.settings.os_build not in ['Linux', 'Macos', 'Windows']:
-            self.options.build_from_source = True
+
 
     def build_requirements(self):
-        if self.options.build_from_source:
-            self.build_requires("flex_installer/2.6.4@bincrafters/stable")
-            self.build_requires("bison/3.5.3")
-            self.build_requires('cmake/3.17.1')
+        self.build_requires("flex_installer/2.6.4@bincrafters/stable")
+        self.build_requires("bison/3.5.3")
 
     def source(self):
-        if not self.options.build_from_source:
-            return
-
         archive_name = "Release_{!s}".format(self.version.replace('.', '_'))
         archive_url = 'https://github.com/doxygen/doxygen/archive/{}.tar.gz'.format(archive_name)
         tools.get(archive_url, sha256=self.source_sha)
@@ -51,7 +45,35 @@ class DoxygenInstallerConan(ConanFile):
         tools.replace_in_file(cmakefile, "include(version)", 'include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake")')
         tools.replace_in_file(cmakefile, "project(doxygen)", """project(doxygen)
 include("../conanbuildinfo.cmake")
-conan_basic_setup()""")
+conan_basic_setup()
+set(TARGET_ARCHIVES_MAY_BE_SHARED_LIBS ON)""")
+        tools.replace_in_file(cmakefile, 'find_package(Iconv REQUIRED)',
+                              """if(CMAKE_SYSTEM_NAME STREQUAL "AIX" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # CMake's check for iconv fails on AIX when iconv is there and properly working
+  set(Iconv_INCLUDE_DIR  "/usr/include")
+  set(Iconv_LIBRARY "-liconv")
+else()
+  find_package(Iconv REQUIRED)
+endif()""")
+        qglobal = "{!s}/qtools/qglobal.h".format(self._source_subfolder)
+        tools.replace_in_file(qglobal, '#define QGLOBAL_H', """#define QGLOBAL_H
+#include <cinttypes>""")
+        mscgen_b = "{!s}/libmscgen/mscgen_bool.h".format(self._source_subfolder)
+        tools.replace_in_file(mscgen_b, '#define MSCGEN_BOOL_H',"""#define MSCGEN_BOOL_H
+#if defined(FALSE)
+#undef FALSE
+#endif
+#if defined(TRUE)
+#undef TRUE
+#endif
+""")
+        util_cpp = "{!s}/src/util.cpp".format(self._source_subfolder)
+        tools.replace_in_file(util_cpp, '#include "htmlentity.h"',"""#include "htmlentity.h"
+#ifndef PRIu64
+#define PRIu64 "%u"
+#endif
+""")
+
 
     def _configure_cmake(self):
         cmake = CMake(self)
@@ -59,7 +81,7 @@ conan_basic_setup()""")
                         build_folder=self._build_subfolder)
         return cmake
 
-    def build_from_source(self):
+    def build(self):
         self.settings.arch = self.settings.arch_build  # workaround for cross-building to get the correct arch during the build
         cmake = self._configure_cmake()
         cmake.build()
@@ -96,43 +118,10 @@ conan_basic_setup()""")
             self.run("diskutil eject %s" % (mount_point))
             tools.rmdir(mount_point)
 
-    def build_from_archive(self):
-        # source location:
-        # https://downloads.sourceforge.net/project/doxygen/rel-1.8.16/doxygen-1.8.16.linux.bin.tar.gz
-
-        url = "http://downloads.sourceforge.net/project/doxygen/rel-{}/{}".format(self.version, self.get_download_filename())
-
-        if self.settings.os_build == "Linux":
-            dest_file = "file.tar.gz"
-        elif self.settings.os_build == "Macos":
-            dest_file = "file.dmg"
-        else:
-            dest_file = "file.zip"
-
-        self.output.warn("Downloading: {}".format(url))
-        tools.download(url, dest_file, verify=False)
-        if self.settings.os_build == "Macos":
-            self.unpack_dmg(dest_file)
-            # Redirect the path of libclang.dylib to be adjacent to the doxygen executable, instead of in Frameworks
-            self.run('install_name_tool -change "@executable_path/../Frameworks/libclang.dylib" "@executable_path/libclang.dylib" doxygen')
-        else:
-            tools.unzip(dest_file)
-        os.unlink(dest_file)
-
-        executeable = "doxygen"
-        if self.settings.os_build == "Windows":
-            executeable += ".exe"
-
-    def build(self):
-        if self.options.build_from_source:
-            self.build_from_source()
-        else:
-            self.build_from_archive()
 
     def package(self):
-        if self.options.build_from_source:
-            cmake = self._configure_cmake()
-            cmake.install()
+        cmake = self._configure_cmake()
+        cmake.install()
 
         if self.settings.os_build in ['Linux', 'AIX', 'SunOS']:
             srcdir = "doxygen-{}/bin".format(self.version)
